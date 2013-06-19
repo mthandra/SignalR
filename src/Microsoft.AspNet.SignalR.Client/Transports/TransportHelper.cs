@@ -13,7 +13,7 @@ namespace Microsoft.AspNet.SignalR.Client.Transports
 {
     public static class TransportHelper
     {
-        public static Task<NegotiationResponse> GetNegotiationResponse(this IHttpClient httpClient, IConnection connection)
+        public static Task<NegotiationResponse> GetNegotiationResponse(this IHttpClient httpClient, IConnection connection, string connectionData)
         {
             if (httpClient == null)
             {
@@ -32,6 +32,11 @@ namespace Microsoft.AspNet.SignalR.Client.Transports
 #endif
             negotiateUrl += AppendCustomQueryString(connection, negotiateUrl);
 
+            if (!String.IsNullOrEmpty(connectionData))
+            {
+                negotiateUrl += "&connectionData=" + connectionData;
+            }
+
             return httpClient.Get(negotiateUrl, connection.PrepareRequest, isLongRunning: false)
                             .Then(response => response.ReadAsString())
                             .Then(raw =>
@@ -46,7 +51,7 @@ namespace Microsoft.AspNet.SignalR.Client.Transports
         }
 
         [SuppressMessage("Microsoft.Design", "CA1062:Validate arguments of public methods", MessageId = "0", Justification = "This is called by internally")]
-        public static string GetReceiveQueryString(IConnection connection, string data, string transport)
+        public static string GetReceiveQueryString(IConnection connection, string connectionData, string transport)
         {
             if (connection == null)
             {
@@ -68,9 +73,9 @@ namespace Microsoft.AspNet.SignalR.Client.Transports
                 qsBuilder.Append("&groupsToken=" + Uri.EscapeDataString(connection.GroupsToken));
             }
 
-            if (data != null)
+            if (connectionData != null)
             {
-                qsBuilder.Append("&connectionData=" + data);
+                qsBuilder.Append("&connectionData=" + connectionData);
             }
 
             string customQuery = connection.QueryString;
