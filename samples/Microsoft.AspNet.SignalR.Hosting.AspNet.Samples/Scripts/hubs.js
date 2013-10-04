@@ -117,6 +117,11 @@
              }
         };
 
+        proxies.chatHub = this.createHubProxy('chatHub'); 
+        proxies.chatHub.client = { };
+        proxies.chatHub.server = {
+        };
+
         proxies.countingHub = this.createHubProxy('countingHub'); 
         proxies.countingHub.client = { };
         proxies.countingHub.server = {

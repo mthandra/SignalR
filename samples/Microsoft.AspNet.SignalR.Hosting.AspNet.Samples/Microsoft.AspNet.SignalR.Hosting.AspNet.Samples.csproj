@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Microsoft.AspNet.SignalR.Samples</RootNamespace>
     <AssemblyName>Microsoft.AspNet.SignalR.Hosting.AspNet.Samples</AssemblyName>
-    <UseIISExpress>true</UseIISExpress>
+    <UseIISExpress>false</UseIISExpress>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
     <IISExpressSSLPort />
@@ -203,6 +203,8 @@
     <Content Include="Scripts\remedial.js" />
     <Content Include="Scripts\jquery.signalR.js" />
     <Content Include="Scripts\jquery.signalR.min.js" />
+    <Content Include="Hubs\SignalR-ChatSample\ChatPage.html" />
+    <Content Include="Hubs\SignalR-ChatSample\ChatSample.js" />
     <Content Include="Streaming\Default.aspx" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
@@ -324,6 +326,7 @@
     <Compile Include="Raw\RawConnection.cs" />
     <Compile Include="Raw\SendingConnection.cs" />
     <Compile Include="Raw\TestConnection.cs" />
+    <Compile Include="Hubs\SignalR-ChatSample\ChatHub.cs" />
     <Compile Include="SignalR.Master.cs">
       <DependentUpon>SignalR.Master</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -390,7 +393,7 @@
           <AutoAssignPort>False</AutoAssignPort>
           <DevelopmentServerPort>40476</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:40476/</IISUrl>
+          <IISUrl>http://localhost/Microsoft.AspNet.SignalR.Hosting.AspNet.Samples</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>
