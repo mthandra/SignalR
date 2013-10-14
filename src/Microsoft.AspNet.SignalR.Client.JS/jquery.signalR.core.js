@@ -249,6 +249,7 @@
             this.url = url;
             this.qs = qs;
             this._ = {
+                negotiateAbortText: "__Negotiate Aborted__",
                 pingIntervalId: null,
                 pingInterval: 300000,
                 pollTimeoutId: null,
@@ -314,6 +315,9 @@
                 deferred = connection._deferral || $.Deferred(), // Check to see if there is a pre-existing deferral that's being built on, if so we want to keep using it
                 parser = window.document.createElement("a");
 
+            // Persist the deferral so that if start is called multiple times the same deferral is used.
+            connection._deferral = deferred;
+
             if ($.type(options) === "function") {
                 // Support calling with single callback parameter
                 callback = options;
@@ -331,22 +335,30 @@
                 throw new Error("SignalR: Invalid transport(s) specified, aborting start.");
             }
 
+            connection._.config = config;
             connection._.pingInterval = config.pingInterval;
 
             // Check to see if start is being called prior to page load
             // If waitForPageLoad is true we then want to re-direct function call to the window load event
             if (!_pageLoaded && config.waitForPageLoad === true) {
-                _pageWindow.load(function () {
-                    connection._deferral = deferred;
+                connection._.deferredStartHandler = function () {
                     connection.start(options, callback);
-                });
+                };
+                _pageWindow.bind("load", connection._.deferredStartHandler);
+
                 return deferred.promise();
             }
 
-            if (changeState(connection,
+            // If we're already connecting just return the same deferral as the original connection start
+            if (connection.state === signalR.connectionState.connecting) {
+                return deferred.promise();
+            }
+            else if (changeState(connection,
                             signalR.connectionState.disconnected,
                             signalR.connectionState.connecting) === false) {
-                // Already started, just return
+                // We're not connecting so try and transition into connecting.
+                // If we fail to transition then we're either in connected or reconnecting.
+
                 deferred.resolve(connection);
                 return deferred.promise();
             }
@@ -418,18 +430,23 @@
             initialize = function (transports, index) {
                 index = index || 0;
                 if (index >= transports.length) {
-                    if (!connection.transport) {
-                        // No transport initialized successfully
-                        $(connection).triggerHandler(events.onError, ["SignalR: No transport could be initialized successfully. Try specifying a different transport or none at all for auto initialization."]);
-                        deferred.reject("SignalR: No transport could be initialized successfully. Try specifying a different transport or none at all for auto initialization.");
-                        // Stop the connection if it has connected and move it into the disconnected state
-                        connection.stop();
-                    }
+                    // No transport initialized successfully
+                    $(connection).triggerHandler(events.onError, ["SignalR: No transport could be initialized successfully. Try specifying a different transport or none at all for auto initialization."]);
+                    deferred.reject("SignalR: No transport could be initialized successfully. Try specifying a different transport or none at all for auto initialization.");
+                    // Stop the connection if it has connected and move it into the disconnected state
+                    connection.stop();
+                    return;
+                }
+
+                // The connection was aborted
+                if (connection.state === signalR.connectionState.disconnected) {
                     return;
                 }
 
                 var transportName = transports[index],
                     transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName];
+
+                connection.transport = transport;
 
                 if (transportName.indexOf("_") === 0) {
                     // Private member
@@ -450,8 +467,6 @@
                     if (transport.supportsKeepAlive && connection.keepAliveData.activated) {
                         signalR.transports._logic.monitorKeepAlive(connection);
                     }
-
-                    connection.transport = transport;
 
                     // Used to ensure low activity clients maintain their authentication.
                     // Must be configured once a transport has been decided to perform valid ping requests.
@@ -490,7 +505,9 @@
             url = signalR.transports._logic.prepareQueryString(connection, url);
 
             connection.log("Negotiating with '" + url + "'.");
-            $.ajax(
+
+            // Save the ajax negotiate request object so we can abort it if stop is called while the request is in flight.
+            connection._.negotiateRequest = $.ajax(
                 $.extend({}, $.signalR.ajaxDefaults, {
                     xhrFields: { withCredentials: connection.withCredentials },
                     url: url,
@@ -498,11 +515,17 @@
                     contentType: connection.contentType,
                     data: {},
                     dataType: connection.ajaxDataType,
-                    error: function (error) {
-                        $(connection).triggerHandler(events.onError, [error.responseText]);
-                        deferred.reject("SignalR: Error during negotiation request: " + error.responseText);
-                        // Stop the connection if negotiate failed
-                        connection.stop();
+                    error: function (error, statusText) {
+                        // We don't want to cause any errors if we're aborting our own negotiate request.
+                        if (statusText !== connection._.negotiateAbortText) {
+                            $(connection).triggerHandler(events.onError, [error.responseText]);
+                            deferred.reject("SignalR: Error during negotiation request: " + error.responseText);
+                            // Stop the connection if negotiate failed
+                            connection.stop();
+                        } else {
+                            // This rejection will noop if the deferred has already been resolved or rejected.
+                            deferred.reject("Stopped the connection while negotiating.");
+                        }
                     },
                     success: function (res) {
                         var keepAliveData = connection.keepAliveData;
@@ -689,7 +712,35 @@
             /// <param name="async" type="Boolean">Whether or not to asynchronously abort the connection</param>
             /// <param name="notifyServer" type="Boolean">Whether we want to notify the server that we are aborting the connection</param>
             /// <returns type="signalR" />
-            var connection = this;
+            var connection = this,
+                // Save deferral because this is always cleaned up
+                deferral = connection._deferral,
+                config = connection._.config;
+
+            // Verify that we've bound a load event.
+            if (connection._.deferredStartHandler) {
+                // Unbind the event.
+                _pageWindow.unbind("load", connection._.deferredStartHandler);
+            }
+
+            // Always clean up private non-timeout based state.
+            delete connection._deferral;
+            delete connection._.config;
+            delete connection._.deferredStartHandler;
+
+            // This needs to be checked despite the connection state because a connection start can be deferred until page load.
+            // If we've deferred the start due to a page load we need to unbind the "onLoad" -> start event.
+            if (!_pageLoaded && (!config || config.waitForPageLoad === true)) {
+                connection.log("Stopping connection prior to negotiate.");
+
+                // If we have a deferral we should reject it
+                if (deferral) {
+                    deferral.reject("The connection was stopped during page load.");
+                }
+
+                // Short-circuit because the start has not been fully started.
+                return;
+            }
 
             if (connection.state === signalR.connectionState.disconnected) {
                 return;
@@ -713,15 +764,18 @@
                     connection.transport = null;
                 }
 
+                if (connection._.negotiateRequest) {
+                    // If the negotiation request has already completed this will noop.
+                    connection._.negotiateRequest.abort(connection._.negotiateAbortText);
+                    delete connection._.negotiateRequest;
+                }
+
                 // Trigger the disconnect event
                 $(connection).triggerHandler(events.onDisconnect);
 
                 delete connection.messageId;
                 delete connection.groupsToken;
-
-                // Remove the ID and the deferral on stop, this is to ensure that if a connection is restarted it takes on a new id/deferral.
                 delete connection.id;
-                delete connection._deferral;
                 delete connection._.pingIntervalId;
             }
             finally {
