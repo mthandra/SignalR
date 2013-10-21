@@ -15,8 +15,8 @@ namespace Microsoft.AspNet.SignalR.WebSockets
         private readonly IWebSocket _webSocket;
         private volatile bool _closed;
 
-        public DefaultWebSocketHandler()
-            : base(_maxIncomingMessageSize)
+        public DefaultWebSocketHandler(TaskCompletionSource<object> tcs)
+            : base(tcs, _maxIncomingMessageSize)
         {
             _webSocket = this;
 
