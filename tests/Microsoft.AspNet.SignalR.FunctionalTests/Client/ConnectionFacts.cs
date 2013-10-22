@@ -1090,7 +1090,7 @@ namespace Microsoft.AspNet.SignalR.Tests
         [InlineData(HostType.HttpListener, TransportType.Websockets, MessageBusType.Default)]
         [InlineData(HostType.HttpListener, TransportType.Websockets, MessageBusType.Default)]
         [InlineData(HostType.HttpListener, TransportType.Websockets, MessageBusType.Default)]
-        public async Task ReconnectExceedingReconnectWindowDisconnects(HostType hostType, TransportType transportType, MessageBusType messageBusType)
+        public void ReconnectExceedingReconnectWindowDisconnects(HostType hostType, TransportType transportType, MessageBusType messageBusType)
         {
             using (var host = CreateHost(hostType, transportType))
             {
@@ -1113,7 +1113,9 @@ namespace Microsoft.AspNet.SignalR.Tests
                         disconnectWh.Set();
                     };
 
-                    await connection.Start(host.Transport);
+                    connection.Start(host.Transport).Wait();
+
+                    Thread.Sleep(TimeSpan.FromSeconds(5));
 
                     host.Shutdown();
 
