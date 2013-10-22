@@ -14,7 +14,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Owin
         [Fact]
         public void WebSocketHandlerThrowsCorrectly()
         {
-            var webSocketHandler = new Mock<WebSocketHandler>(null, 64 * 1024);
+            var webSocketHandler = new Mock<WebSocketHandler>(new TaskCompletionSource<object>(), 64 * 1024);
             var webSocket = new Mock<WebSocket>();
 
             webSocketHandler.Setup(wsh => wsh.OnError()).Callback(() =>
@@ -34,7 +34,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Owin
         [Fact]
         public void ThrowingErrorOnCloseRaisesOnClosed()
         {
-            var webSocketHandler = new Mock<WebSocketHandler>(null, 64 * 1024);
+            var webSocketHandler = new Mock<WebSocketHandler>(new TaskCompletionSource<object>(), 64 * 1024);
             var webSocket = new Mock<WebSocket>();
             var cts = new CancellationTokenSource();
             webSocketHandler.Setup(wsh => wsh.CloseAsync()).Throws(new Exception("It's disconnected"));
@@ -54,7 +54,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Owin
                                             new WebSocketReceiveResult(0, WebSocketMessageType.Close, endOfMessage: true)};
 
             var webSocket = new Mock<WebSocket>(MockBehavior.Strict);
-            var webSocketHandler = new Mock<WebSocketHandler>(MockBehavior.Strict, null, 64 * 1024);
+            var webSocketHandler = new Mock<WebSocketHandler>(MockBehavior.Strict, new TaskCompletionSource<object>(), 64 * 1024);
 
             webSocket.Setup(w => w.State).Returns(WebSocketState.Closed);
 
@@ -113,7 +113,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Owin
         public async Task CloseNoopsIfInTerminalState(WebSocketState state)
         {
             var webSocket = new Mock<WebSocket>();
-            var webSocketHandler = new WebSocketHandler(null, 64 * 1024);
+            var webSocketHandler = new WebSocketHandler(new TaskCompletionSource<object>(), 64 * 1024);
 
             webSocket.Setup(m => m.State).Returns(state);
             webSocketHandler.WebSocket = webSocket.Object;
@@ -132,7 +132,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Owin
         public async Task SendNoopsIfNotOpen(WebSocketState state)
         {
             var webSocket = new Mock<WebSocket>();
-            var webSocketHandler = new WebSocketHandler(null, 64 * 1024);
+            var webSocketHandler = new WebSocketHandler(new TaskCompletionSource<object>(), 64 * 1024);
 
             webSocket.Setup(m => m.State).Returns(state);
             webSocketHandler.WebSocket = webSocket.Object;
