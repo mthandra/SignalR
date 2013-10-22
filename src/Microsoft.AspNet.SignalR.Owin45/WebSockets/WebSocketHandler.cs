@@ -25,10 +25,10 @@ namespace Microsoft.AspNet.SignalR.WebSockets
 
         private TaskCompletionSource<object> _tcs;
 
-        public WebSocketHandler(TaskCompletionSource<object> tcs, int? maxIncomingMessageSize)
+        public WebSocketHandler(TaskCompletionSource<object> taskCompletionSource, int? maxIncomingMessageSize)
         {
             _maxIncomingMessageSize = maxIncomingMessageSize;
-            _tcs = tcs;
+            _tcs = taskCompletionSource;
             if (_tcs != null)
             {
                 _sendQueue = new TaskQueue(_tcs.Task);
